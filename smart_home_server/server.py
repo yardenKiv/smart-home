@@ -1,6 +1,5 @@
 from threading import Thread, Lock, Condition
 import RSA
-from _thread import *
 import socket
 import time
 import json
@@ -51,11 +50,11 @@ class server:
     """
     def run(self, number_of_threads):
 
-        start_new_thread(self.listen_for_clients, ())
-        start_new_thread(self.listen_for_events, ())
+        Thread(target=self.listen_for_clients)
+        Thread(target=self.listen_for_events)
 
         for i in range(number_of_threads):
-            start_new_thread(self.thread_function, (i, ))
+            Thread(target=self.thread_function)
 
     print("log: server running")
 
@@ -170,7 +169,7 @@ class server:
     """
      warp the function that handel event that was given to the server
     """
-    def thread_function(self, thread_id):
+    def thread_function(self):
 
         user_device = ""
 
