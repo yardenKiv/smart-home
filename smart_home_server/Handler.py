@@ -25,8 +25,6 @@ def handel_event(data, socket, server):
     value = data["data"]
     code = data["id"]
 
-
-
     if state == "check_image":
         image = get_image_event(socket, value)
         res = check_image_event(image, code)

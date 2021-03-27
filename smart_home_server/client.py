@@ -39,8 +39,12 @@ class client:
         return RSA.decrypt_text(self.rsa_keys["client_private_key"], encrypted_msg)
 
 
-c = client("127.0.0.1", 11223)
+print("start")
+c = client("34.105.163.102", 65432)
+
 c.connect()
+
+print("got")
 
 c.send("ping")
 print(c.read())

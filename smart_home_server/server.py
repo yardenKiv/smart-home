@@ -50,11 +50,11 @@ class server:
     """
     def run(self, number_of_threads):
 
-        Thread(target=self.listen_for_clients)
-        Thread(target=self.listen_for_events)
+        Thread(target=self.listen_for_clients).start()
+        Thread(target=self.listen_for_events).start()
 
         for i in range(number_of_threads):
-            Thread(target=self.thread_function)
+            Thread(target=self.thread_function).start()
 
     print("log: server running")
 
@@ -171,6 +171,8 @@ class server:
     """
     def thread_function(self):
 
+        print("start thread")
+
         user_device = ""
 
         while True:
@@ -215,6 +217,7 @@ class server:
 
 
 
+
     """
      send msg to the client
      
@@ -226,6 +229,7 @@ class server:
         rsa_data = self.get_data_connected_clients(soc)
 
         text = RSA.encrypt_text(rsa_data["client_public_key"], msg)
+        text = text
         soc.send(text.encode())
 
     """
@@ -264,7 +268,7 @@ class server:
         self.skip_sockets_mutex.acquire()
 
         try:
-            self.skip_sockets.pop(socket)
+            self.skip_sockets.remove(socket)
         except Exception:
             pass
 
@@ -287,9 +291,7 @@ class server:
 
     def add_connected_clients(self, socket, data):
         self.connected_clients_mutex.acquire()
-        print("con1:", self.connected_clients)
         self.connected_clients[socket] = data
-        print("con2:", self.connected_clients)
         self.connected_clients_mutex.release()
 
     def copy_connected_clients(self):

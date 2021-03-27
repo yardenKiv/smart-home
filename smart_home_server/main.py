@@ -3,7 +3,6 @@ import RSA
 import json
 import Handler
 import pymongo
-import XOR
 from database_manager import database_manager
 
 
@@ -20,6 +19,8 @@ def main():
 
     ser = server("", 11223, func)
     ser.run(5)
+
+
 
     while True:
         pass
