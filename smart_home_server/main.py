@@ -8,8 +8,8 @@ from database_manager import database_manager
 
 def func(event, server):
 
-    json_data = json.loads(event[0])
-    Handler.handel_event(json_data, event[1], server)
+    json_data = json.loads(event.data)
+    Handler.handel_event(json_data, event.client, server)
 
 
 

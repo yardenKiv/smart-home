@@ -1,7 +1,7 @@
 import pickle
 import pymongo
 import numpy
-import drill
+
 
 
 
@@ -9,7 +9,10 @@ class database_manager:
 
     def __init__(self):
 
+        # used for global connection
         self.mongo_client = pymongo.MongoClient("mongodb+srv://admin:admin@cluster0.wwoqh.mongodb.net/mainDB?retryWrites=true&w=majority")
+
+        # used for local connection
         # self.mongo_client = pymongo.MongoClient('localhost', 27017)
 
         print("log: database ready")

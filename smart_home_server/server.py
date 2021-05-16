@@ -1,9 +1,12 @@
 from threading import Thread, Lock, Condition
 import RSA
-import socket
+import socket as soc
 import time
 import json
-import XOR
+
+from client import Client
+from event import Event
+
 
 JSON_START = 123
 JSON_START_CHAR = "{"
@@ -13,9 +16,10 @@ DISCONNECT_MSG = """{"state": "delete_user", "data": "-", "id": "-"}"""
 class server:
 
     def __init__(self, ip, port, event_handler_function):
-        self.connected_clients = {}
+
+        self.connected_clients = list()
+        self.skip_clients = list()
         self.events = list()
-        self.text_list = list()
 
         self.ip = ip
         self.port = port
@@ -24,22 +28,22 @@ class server:
         self.create_socket()
 
         self.connected_clients_mutex = Lock()
+        self.skip_client_mutex = Lock()
         self.events_mutex = Lock()
-
         self.lock = Lock()
+
         self.thread_pool_mutex = Condition(self.lock)
 
         self.event_handler_function = event_handler_function
         self.curr_event = None
 
-        self.skip_sockets = []
-        self.skip_sockets_mutex = Lock()
+
 
     """
      create the socket of the server
     """
     def create_socket(self):
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket = soc.socket(soc.AF_INET, soc.SOCK_STREAM)
         self.server_socket.bind((self.ip, self.port))
         self.server_socket.listen(5)
 
@@ -56,7 +60,7 @@ class server:
         for i in range(number_of_threads):
             Thread(target=self.thread_function).start()
 
-    print("log: server running")
+        print("log: server running")
 
     """
      listen for new clients and add them to the server data
@@ -69,7 +73,7 @@ class server:
 
             # wait for new sockets
             new_socket, addr = self.server_socket.accept()
-            print("got client")
+            print("log: got client")
 
             # fix bug with socket on android studio
             start = new_socket.recv(2)
@@ -105,9 +109,10 @@ class server:
                         "server_private_key": server_private_key}
 
             # add new socket
-            self.add_connected_clients(new_socket, rsa_json)
+            new_client = Client(new_socket, rsa_json)
+            self.add_connected_clients(new_client)
 
-            print('keys ', rsa_json)
+            print('log: keys ', rsa_json)
             print('log: Connected to :', addr[0], ':', addr[1])
 
 
@@ -125,34 +130,34 @@ class server:
             copy_connected_clients = self.copy_connected_clients()
 
             # go over all the connected sockets
-            for curr_socket in copy_connected_clients.keys():
+            for curr_client in copy_connected_clients:
 
                 try:
-                    if curr_socket in self.copy_skip_socket():
+                    if curr_client in self.copy_skip_clients():
                         continue
 
                     # read socket
-                    data = curr_socket.recv(1024)
+                    data = curr_client.socket.recv(1024)
 
                     # get the data of the connection
-                    connection_data = copy_connected_clients[curr_socket]
-                    curr_socket.setblocking(1)
+                    connection_data = curr_client.rsa_data
+                    curr_client.socket.setblocking(1)
 
                     # if data was found stop the socket so the client will be able to use it
-                    self.add_skip_socket(curr_socket)
+                    self.add_skip_client(curr_client)
 
                     # handel the decode even if the client send invalid data
                     try:
 
                         # create event
-                        new_event = (data.decode('utf-8'), curr_socket, connection_data)
+                        new_event = Event(data.decode('utf-8'), curr_client, connection_data)
                     except UnicodeDecodeError:
 
                         # fix bug with socket on android studio
                         data = data[2:]
 
                         # create event
-                        new_event = (data.decode('utf-8'), curr_socket, connection_data)
+                        new_event = Event(data.decode('utf-8'), curr_client, connection_data)
                         print("log: new event", new_event)
 
                     # add event to be handheld
@@ -183,11 +188,12 @@ class server:
 
             # get the event
             print("log: start event")
-            (msg, client_socket, connection_data) = self.pop_event()
+
+            new_event = self.pop_event()
 
             # decrypt the data of the event
             print("log: decrypt data")
-            text = self.decrypt_msg(msg, connection_data)
+            text = self.decrypt_msg(new_event.data, new_event.rsa_data)
             print("log: event data", text)
 
             # check witch device the user is using
@@ -199,20 +205,22 @@ class server:
             if user_device == "android":
                 text = text[2:]
 
+            new_event.data = text
+
             # run given function the handel the event
             print("log: start main function")
-            self.event_handler_function((text, client_socket), self)
+            self.event_handler_function(new_event, self)
             print("log: end main function")
 
             # if the user send disconnect msg remove him from the server
-            if not msg or msg == DISCONNECT_MSG:
-                self.remove_connected_clients(client_socket)
+            if not new_event.data or new_event.data == DISCONNECT_MSG:
+                self.remove_connected_clients(new_event.client)
 
             # remove blocking of the socket
-            client_socket.setblocking(0)
+            new_event.client.socket.setblocking(0)
 
             # return the socket to be checked
-            self.remove_skip_socket(client_socket)
+            self.remove_skip_client(new_event.client)
             print("log: end event")
 
 
@@ -259,39 +267,42 @@ class server:
 
 
     # functions to get to shard resources with mutexes
-    def add_skip_socket(self, socket):
-        self.skip_sockets_mutex.acquire()
-        self.skip_sockets.append(socket)
-        self.skip_sockets_mutex.release()
+    def add_skip_client(self, client):
+        self.skip_client_mutex.acquire()
+        self.skip_clients.append(client)
+        self.skip_client_mutex.release()
 
-    def remove_skip_socket(self, socket):
-        self.skip_sockets_mutex.acquire()
+    def remove_skip_client(self, client):
+        self.skip_client_mutex.acquire()
 
         try:
-            self.skip_sockets.remove(socket)
+            self.skip_clients.remove(client)
         except Exception:
             pass
 
-        self.skip_sockets_mutex.release()
+        self.skip_client_mutex.release()
 
-    def copy_skip_socket(self):
-        self.skip_sockets_mutex.acquire()
-        copy = self.skip_sockets
-        self.skip_sockets_mutex.release()
+    def copy_skip_clients(self):
+        self.skip_client_mutex.acquire()
+        copy = self.skip_clients
+        self.skip_client_mutex.release()
 
         return copy
 
     def get_data_connected_clients(self, socket):
 
         self.connected_clients_mutex.acquire()
-        rsa_data = self.connected_clients[socket]
+        for client in self.connected_clients:
+            if client.socket == socket:
+                self.connected_clients_mutex.release()
+                return client.rsa_data
+
         self.connected_clients_mutex.release()
 
-        return rsa_data
 
-    def add_connected_clients(self, socket, data):
+    def add_connected_clients(self, new_client):
         self.connected_clients_mutex.acquire()
-        self.connected_clients[socket] = data
+        self.connected_clients.append(new_client)
         self.connected_clients_mutex.release()
 
     def copy_connected_clients(self):
@@ -301,11 +312,11 @@ class server:
 
         return connected_clients_copy
 
-    def remove_connected_clients(self, socket):
+    def remove_connected_clients(self, client):
         self.connected_clients_mutex.acquire()
 
         try:
-            self.connected_clients.pop(socket)
+            self.connected_clients.remove(client)
         except Exception:
             pass
 

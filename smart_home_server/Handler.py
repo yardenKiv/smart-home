@@ -18,37 +18,44 @@ lock_managar = lock_manager()
  :param server - instance of the server in order to use it functions
 
 """
-def handel_event(data, socket, server):
+def handel_event(data, client, server):
     res = None
+    client_socket = client.socket
 
     state = data["state"]
     value = data["data"]
     code = data["id"]
 
-    if state == "check_image":
-        image = get_image_event(socket, value)
-        res = check_image_event(image, code)
-        lock_socket = lock_managar.get_socket(code)
+    try:
 
-        if res:
-            print("log: checking result", res)
-            server.send(socket, "open")
-            server.send(lock_socket, "open")
+        if state == "check_image":
+            image = get_image_event(client_socket, value)
+            res = check_image_event(image, code)
+            lock_socket = lock_managar.get_socket(code)
 
-    elif state == "insert_image":
-        image = get_image_event(socket, value)
-        insert_image_event(image, code)
-        print("log: image added")
+            if res:
+                print("log: checking result", res)
+                server.send(client_socket, "open")
+                server.send(lock_socket, "open")
 
-    elif state == "add_lock":
-        lock_managar.add_lock(code, socket)
-        print("log: lock added")
+        elif state == "insert_image":
+            image = get_image_event(client_socket, value)
+            insert_image_event(image, code)
+            print("log: image added")
 
-    elif state == "close_lock":
-        server.send(socket, "close")
-        lock_socket = lock_managar.get_socket(code)
-        server.send(lock_socket, "close")
-        print("log: lock closed")
+        elif state == "add_lock":
+            lock_managar.add_lock(code, client_socket)
+            print("log: lock added")
+
+        elif state == "close_lock":
+            server.send(client_socket, "close")
+            lock_socket = lock_managar.get_socket(code)
+            server.send(lock_socket, "close")
+            print("log: lock closed")
+
+    except Exception as e:
+        server.send(client_socket, "error")
+
 
 
 """ 
