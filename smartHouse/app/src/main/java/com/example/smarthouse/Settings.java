@@ -32,12 +32,15 @@ public class Settings extends AppCompatActivity {
 
         idInput = findViewById(R.id.id_input);
 
+        // setup the ui
         toolbar = findViewById(R.id.settings_toolbar);
         setSupportActionBar(toolbar);
 
+        // setup the file manager
         fileManager = FileManager.getInstance();
         String jsonString = fileManager.readFromFile(getApplicationContext(), FileManager.SETTINGS_FILE);
 
+        // get the current settings
         try {
 
             JSONObject jsonObject  = new JSONObject(jsonString);
@@ -72,6 +75,9 @@ public class Settings extends AppCompatActivity {
         }
     }
 
+    /*
+    save the settings that the user have entered
+     */
     public void saveId() {
 
         try

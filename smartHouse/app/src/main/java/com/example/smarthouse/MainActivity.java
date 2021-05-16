@@ -41,9 +41,6 @@ public class MainActivity extends AppCompatActivity {
     private BottomNavigationView bottomNavigationView;
     private Fragment fragment = null;
 
-    private ImageView button_on;
-    private ImageView button_off;
-
     private Uri imageUri;
     private Bitmap bit;
 
@@ -54,19 +51,24 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // set the tool bar
         toolbar = findViewById(R.id.main_toolbar);
         setSupportActionBar(toolbar);
 
+        // set the bottom nav bar
         bottomNavigationView = findViewById(R.id.bottomNav);
         bottomNavigationView.setOnNavigationItemSelectedListener(selectedListener);
 
+        // move to the home fragment
         fragment = new HomeFragment();
         getSupportFragmentManager().beginTransaction().replace(R.id.container, fragment).commit();
 
+        // setup the file manager
         FileManager fileManager = FileManager.getInstance();
         String jsonString = fileManager.readFromFile(getApplicationContext(), FileManager.SETTINGS_FILE);
         JSONObject jsonObject  = null;
 
+        // get the data from the current settings
         try {
 
             jsonObject = new JSONObject(jsonString);
@@ -76,9 +78,7 @@ public class MainActivity extends AppCompatActivity {
 
         }
 
-
-
-
+        // start the connection to the server
         new communicator(this).execute();
 
 
@@ -111,12 +111,14 @@ public class MainActivity extends AppCompatActivity {
     public void addOpenCamera()
     {
 
-        if (id == INVALID_ID)
+        // check if the id is invalid
+        if (id <= INVALID_ID)
         {
             Toast.makeText(this, "Invalid id", Toast.LENGTH_SHORT).show();
             return;
         }
 
+        // open the camera and set it to add picture
         ContentValues values = new ContentValues();
         values.put(MediaStore.Images.Media.TITLE, "New Picture");
         values.put(MediaStore.Images.Media.DESCRIPTION, "From your Camera");
@@ -130,7 +132,8 @@ public class MainActivity extends AppCompatActivity {
     public void clickOpenCamera()
     {
 
-        if (id == INVALID_ID)
+        // check if the id is invalid
+        if (id <= INVALID_ID)
         {
             Toast.makeText(this, "Invalid id", Toast.LENGTH_SHORT).show();
             return;
@@ -162,7 +165,7 @@ public class MainActivity extends AppCompatActivity {
             userRequest.put("state", "close_lock");
             userRequest.put("id", new Integer(id));
             userRequest.put("data", "-");
-
+            Log.e("DataReadSocket", "send");
             communicator.writeRsa(userRequest.toString());
 
         } catch (JSONException e) {

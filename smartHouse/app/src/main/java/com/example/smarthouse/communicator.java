@@ -20,13 +20,14 @@ import java.util.Map;
 
 public class communicator extends AsyncTask<Void, Void, String> {
 
+    static final private String SERVER_IP = "192.168.0.111";
+    static final private int SERVER_PORT = 11223;
+
     static private Socket socket;
     static private DataOutputStream output;
     static private BufferedReader input;
 
-    static public boolean sendImage;
     static private Activity activity;
-    static private Map<String, JSONObject> keys;
     static private RSA rsa;
 
     public communicator(Activity activity)
@@ -39,11 +40,11 @@ public class communicator extends AsyncTask<Void, Void, String> {
 
         String message = "";
 
-
         try
         {
             try
             {
+              // create the encryption keys
               rsa = new RSA(16);
 
             }
@@ -55,7 +56,9 @@ public class communicator extends AsyncTask<Void, Void, String> {
 
             try
             {
-                communicator.socket = new Socket("34.105.163.102", 11223);
+
+                // create the connection to the server
+                communicator.socket = new Socket(SERVER_IP, SERVER_PORT);
                 communicator.output = new DataOutputStream(socket.getOutputStream());
                 communicator.input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             }
@@ -66,6 +69,7 @@ public class communicator extends AsyncTask<Void, Void, String> {
 
             try
             {
+               // send the keys to the server and recover his keys
                exchangeKeys();
             }
             catch (Exception e)
@@ -80,23 +84,23 @@ public class communicator extends AsyncTask<Void, Void, String> {
             Log.e("myErrorStart", e.toString());
         }
 
-        Log.e("DataReadSocket", "start read");
 
+        // wait for messages from the server
         while(true)
         {
             try {
 
+                // read and deycript the data
                 message = read();
+                final String res = rsa.decryptText(message);
 
+                // show it to the client
+                activity.runOnUiThread(new Runnable() {
+                    public void run() {
+                        Toast.makeText(activity, res, Toast.LENGTH_SHORT).show();
+                    }
+                });
 
-                if (socket.getInputStream().available() != 0)
-                {
-
-                    Log.e("DataReadSocket", "got");
-
-                    Log.e("DataReadSocket", message);
-
-                }
             } catch (Exception e)
             {
                 Log.e("myErrorReadSocket", e.toString());
@@ -105,9 +109,12 @@ public class communicator extends AsyncTask<Void, Void, String> {
 
     }
 
+
+    /*
+   the function send text to the server
+    */
     static void write(final String text)
     {
-
 
             new Thread(new Runnable(){
                 @Override
@@ -127,6 +134,9 @@ public class communicator extends AsyncTask<Void, Void, String> {
             }).start();
     }
 
+    /*
+    the function send encrypted text to the server
+     */
     static void writeRsa(final String text)
     {
         new Thread(new Runnable(){
@@ -149,6 +159,11 @@ public class communicator extends AsyncTask<Void, Void, String> {
         }).start();
     }
 
+    /*
+    the function send binary data to the server
+
+
+     */
     static void write(final byte[] bytes)
     {
 
@@ -173,6 +188,9 @@ public class communicator extends AsyncTask<Void, Void, String> {
         }).start();
     }
 
+    /*
+    the function exchange keys with the server
+     */
     static void exchangeKeys() throws IOException, JSONException {
         String t = String.valueOf(rsa.publicKeyToJson());
         write(t);
@@ -184,6 +202,9 @@ public class communicator extends AsyncTask<Void, Void, String> {
         rsa.jsonToServerPublicKey(public_key);
     }
 
+    /*
+    the function read data from the server
+     */
     static String read()
     {
         char buffer[] = new char[1024];

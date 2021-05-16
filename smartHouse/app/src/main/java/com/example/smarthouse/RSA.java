@@ -60,7 +60,7 @@ public class RSA {
             BigInteger num = BigInteger.valueOf(letter);
 
             BigInteger res = this.encrypt(num);
-            msg = msg + "" + res.toString() + " ";
+            msg = msg + res.toString() + " ";
         }
 
         msg = msg.substring(0, msg.length() - 1);
@@ -78,7 +78,7 @@ public class RSA {
             BigInteger num = BigInteger.valueOf(Long.parseLong(letter));
 
             BigInteger res = this.decrypt(num);
-            msg = msg + " " + res.toString();
+            msg = msg + (char) res.intValue();
         }
 
         return msg;
@@ -93,6 +93,9 @@ public class RSA {
         s += "modulus = " + modulus;
         return s;
     }
+
+
+    // convert the keys to json
 
     public  JSONObject publicKeyToJson() throws JSONException {
         JSONObject a = new JSONObject();
@@ -109,6 +112,9 @@ public class RSA {
 
         return a;
     }
+
+
+    // assign the keys from json to the object
 
     public void jsonToPrivateKey(JSONObject a) throws JSONException {
         int e = a.getInt("e");
